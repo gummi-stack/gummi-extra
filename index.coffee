@@ -13,18 +13,31 @@ app.get '/tail/:app/:worker?', (req, res) ->
 	app = req.params.app
 	worker = req.params.worker
 	client = new net.Socket()
+	connected = no
 
 	client.connect 4444, '192.168.13.6', ->
-		if app
-			filter = filter: gummi_app: app
-			filter.filter.gummi_worker = worker if worker
-			client.write JSON.stringify filter
+		connected = yes
+
+		filter = filter: gummi_app: app
+		filter.filter.gummi_worker = worker if worker
+		client.write JSON.stringify filter
 
 	client.on 'data', (data) ->
 		res.write data
 
+	client.on 'end', ->
+		res.end()
+
 	client.on 'error', (err) ->
 		console.log err
+		res.end()
+
+	req.on 'close', ->
+		client.end() if connected
+
+	req.on 'error', (err) ->
+		console.log err
+		client.end() if connected
 
 app.get '/logs/:app/:worker?', (req, res, next) ->
 	options =

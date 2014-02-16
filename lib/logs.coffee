@@ -20,10 +20,16 @@ module.exports = (esUrl) ->
 					"should": []
 			"from": 0
 			"size": 50
+			"sort":[
+				{
+					"@timestamp":
+						"reverse":false
+				}
+			]
 
 		esQuery['query']['bool']['must'].push {term: {"logs.gummi_app.raw": app}}
 		if worker
-			esQuery['query']['bool']['must'].push {term: {"logs.gummi_worker.raw": worker}}
+			esQuery['query']['bool']['must'].push {term: {"logs.gummi_worker": worker}}
 
 		options =
 			url: "#{esUrl}/_search"
@@ -37,6 +43,7 @@ module.exports = (esUrl) ->
 			return callback data.error if data.error
 
 			response = data['hits']['hits'].map (doc) ->
-				doc['_source']['@timestamp'] + ': ' + doc['_source']['message']
+				msg = doc['_source']
+				"#{msg['@timestamp']} #{msg['gummi_app']}[#{msg['gummi_worker']}]: #{msg['message']}"
 
 			callback null, response

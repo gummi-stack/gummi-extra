@@ -50,3 +50,4 @@ app.get '/logs/:app/:worker?', (req, res, next) ->
 
 
 app.listen config['port']
+util.log "Server listening on #{config.port}"

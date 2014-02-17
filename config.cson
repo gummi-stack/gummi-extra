@@ -1,3 +1,3 @@
 port: 8080
-logstash: "tcp://10.11.0.70:4444"
-elasticsearch: "http://10.11.0.70:9200"
+logstash: "tcp://node2.lxc.nag.ccl:4444"
+elasticsearch: "http://node2.lxc.nag.ccl:9200"

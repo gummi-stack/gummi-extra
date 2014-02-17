@@ -1,53 +1,79 @@
 express = require 'express'
 net = require 'net'
+url = require 'url'
 util = require 'util'
 
 config = require('cson-config').load()
+
+logstashUrl = url.parse config['logstash']
 logs = require('./lib/logs') config['elasticsearch']
 
 app = express()
+app.use express.urlencoded()
+app.use express.query()
 app.use app.router
 app.use express.errorHandler()
 
 app.get '/tail/:app/:worker?', (req, res) ->
 	app = req.params.app
 	worker = req.params.worker
-	client = new net.Socket()
-	connected = no
+	util.log "Tail request start"
 
-	client.connect 4444, '192.168.13.6', ->
+	interval = setInterval () ->
+		# Send some data for keeping socket alive
+		res.write new Buffer [0x00]
+	, 30000
+
+	res.on 'close', () ->
+		clearInterval interval
+
+	connected = no
+	client = new net.Socket()
+	client.connect logstashUrl.port, logstashUrl.hostname, ->
 		connected = yes
 
-		filter = filter: gummi_app: app
-		filter.filter.gummi_worker = worker if worker
+		filter =
+			filter:
+				gummi_app: app
+				gummi_worker: worker
 		client.write JSON.stringify filter
 
 	client.on 'data', (data) ->
-		res.write data
+		try
+			msg = JSON.parse data
+			res.write format msg
+		catch err
+			util.log 'Invalid data: ' + data
 
 	client.on 'end', ->
 		res.end()
 
 	client.on 'error', (err) ->
-		console.log err
+		util.log util.inspect err
 		res.end()
 
 	req.on 'close', ->
+		util.log "Tail request close"
 		client.end() if connected
 
 	req.on 'error', (err) ->
-		console.log err
+		util.log util.inspect err
 		client.end() if connected
 
 app.get '/logs/:app/:worker?', (req, res, next) ->
 	options =
 		app: req.params.app
 		worker: req.params.worker
+		lines: req.query.n || 100
 
 	logs options, (err, data) ->
 		return next err if err
-		res.end data.join '\n'
+		result = data.map format
+		res.end result.join('')
+
+format = (msg) ->
+	"#{msg['@timestamp']} #{msg['gummi_source'] || 'app'}[#{msg['gummi_worker']}]: #{msg['message']}\n"
 
 
-app.listen config['port']
+server = app.listen config['port']
 util.log "Server listening on #{config.port}"

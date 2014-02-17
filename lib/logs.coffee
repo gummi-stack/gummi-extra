@@ -4,6 +4,7 @@ module.exports = (esUrl) ->
 	(options, callback) ->
 		app = options.app
 		worker = options.worker
+		lines = options.lines
 
 		esQuery =
 			"query":
@@ -19,7 +20,7 @@ module.exports = (esUrl) ->
 					"must_not": []
 					"should": []
 			"from": 0
-			"size": 50
+			"size": lines
 			"sort":[
 				{
 					"@timestamp":
@@ -42,8 +43,7 @@ module.exports = (esUrl) ->
 			data = JSON.parse body
 			return callback data.error if data.error
 
-			response = data['hits']['hits'].map (doc) ->
-				msg = doc['_source']
-				"#{msg['@timestamp']} #{msg['gummi_app']}[#{msg['gummi_worker']}]: #{msg['message']}"
+			result = data['hits']['hits'].map (doc) ->
+				doc['_source']
 
-			callback null, response
+			callback null, result
